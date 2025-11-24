@@ -17,6 +17,8 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
+import requests
+import asyncio
 
 # .env faylini yuklash
 load_dotenv()
@@ -24,6 +26,8 @@ load_dotenv()
 # Environment variables dan tokenni olish
 API_TOKEN = os.getenv("API_TOKEN")
 GIGA_TOKEN = os.getenv("GIGA_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 
 # Tokenlarni tekshirish
 if not API_TOKEN:
@@ -101,17 +105,21 @@ def save_user_data():
         print(f"Faylga yozishda xatolik: {e}")
 
 
-# Gigachat API bilan ishlash (requests orqali)
-async def ask_gigachat(user_id: str, user_question: str) -> str:
+
+# OpenAI API bilan ishlash (requests orqali)
+async def ask_openai(user_id: str, user_question: str) -> str:
     try:
         # User ma'lumotlarini olish
         if user_id in user_data:
             user_info = user_data[user_id]["profile"]
-            user_context = f"Yosh: {user_info[0]}, Kasb: {user_info[1]}, Daromad: {user_info[2]}, Qiziqishlar: {user_info[3]}, Biznes: {user_info[4]}"
+            user_context = (
+                f"Yosh: {user_info[0]}, Kasb: {user_info[1]}, "
+                f"Daromad: {user_info[2]}, Qiziqishlar: {user_info[3]}, Biznes: {user_info[4]}"
+            )
         else:
             user_context = "Foydalanuvchi ma'lumotlari topilmadi"
 
-        # To'liq prompt tayyorlash
+        # Prompt
         full_prompt = f"""
         Siz moliyaviy maslahatchi AI siz. 
         Foydalanuvchi ma'lumotlari: {user_context}
@@ -126,16 +134,16 @@ async def ask_gigachat(user_id: str, user_question: str) -> str:
         - Maxfiylikni saqlang
         """
 
-        # Gigachat API ga so'rov
-        url = "https://gigachat.devices.sberbank.ru/api/v1/chat/completions"
+        # OpenAI endpoint
+        url = "https://api.openai.com/v1/chat/completions"
 
         headers = {
-            "Authorization": f"Bearer {GIGA_TOKEN}",
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
             "Content-Type": "application/json"
         }
 
         payload = {
-            "model": "GigaChat",
+            "model": "gpt-4.1",
             "messages": [
                 {
                     "role": "user",
@@ -146,16 +154,16 @@ async def ask_gigachat(user_id: str, user_question: str) -> str:
             "max_tokens": 1000
         }
 
-        # Sync request ni async ga o'girish
+        # Sync so‘rovni async qilish
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
-            lambda: requests.post(url, json=payload, headers=headers, verify=False)
+            lambda: requests.post(url, json=payload, headers=headers)
         )
 
         if response.status_code == 200:
             result = response.json()
-            return result['choices'][0]['message']['content']
+            return result["choices"][0]["message"]["content"]
         else:
             return f"❌ API xatosi: {response.status_code}. Iltimos, keyinroq urinib ko'ring."
 
