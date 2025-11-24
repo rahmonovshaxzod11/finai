@@ -1,15 +1,13 @@
 import asyncio
 import json
 import os
-import random
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message,
     CallbackQuery,
     InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    FSInputFile
+    InlineKeyboardButton
 )
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -49,7 +47,6 @@ BANKS_DATA = {
     "agro": {"name": "Agrobank", "rate": 14.5, "min_amount": 1000000, "color": "#795548"},
 }
 
-
 class ProfileForm(StatesGroup):
     age = State()
     job = State()
@@ -57,13 +54,11 @@ class ProfileForm(StatesGroup):
     interest = State()
     business = State()
 
-
 class CreditForm(StatesGroup):
     amount = State()
     interest_rate = State()
     term = State()
     start_date = State()
-
 
 class DepositForm(StatesGroup):
     amount = State()
@@ -71,10 +66,8 @@ class DepositForm(StatesGroup):
     bank_choice = State()
     capitalization = State()
 
-
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
-
 
 # JSON fayldan ma'lumotlarni o'qish
 def load_user_data():
@@ -87,7 +80,6 @@ def load_user_data():
             print(f"Faylni o'qishda xatolik: {e}")
             user_data = {}
 
-
 # JSON faylga ma'lumotlarni yozish
 def save_user_data():
     try:
@@ -95,7 +87,6 @@ def save_user_data():
             json.dump(user_data, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"Faylga yozishda xatolik: {e}")
-
 
 # Kanalga a'zolikni tekshirish
 async def check_subscription(user_id: int) -> bool:
@@ -113,18 +104,16 @@ async def check_subscription(user_id: int) -> bool:
             return False
     return True
 
-
 # A'zo bo'lish uchun klaviatura
 def subscription_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
-                            [InlineKeyboardButton(text=name, url=link)]
-                            for name, link in REQUIRED_CHANNELS
-                        ] + [
-                            [InlineKeyboardButton(text="🔄 Tekshirish", callback_data="check_sub")]
-                        ]
+            [InlineKeyboardButton(text=name, url=link)]
+            for name, link in REQUIRED_CHANNELS
+        ] + [
+            [InlineKeyboardButton(text="🔄 Tekshirish", callback_data="check_sub")]
+        ]
     )
-
 
 # Asosiy menyu
 def main_menu():
@@ -136,7 +125,6 @@ def main_menu():
             [InlineKeyboardButton(text="🏦 Depozit kalkulyatori", callback_data="deposit_calc")],
         ]
     )
-
 
 # Bank tanlash klaviaturasi
 def banks_keyboard():
@@ -151,7 +139,6 @@ def banks_keyboard():
     buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-
 # Kapitalizatsiya tanlash
 def capitalization_keyboard():
     return InlineKeyboardMarkup(
@@ -161,7 +148,6 @@ def capitalization_keyboard():
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="main_menu")],
         ]
     )
-
 
 # OpenAI bilan ishlash funksiyasi (requests orqali)
 async def ask_openai(user_id: str, user_question: str) -> str:
@@ -181,7 +167,7 @@ async def ask_openai(user_id: str, user_question: str) -> str:
         if user_id in user_data:
             user_info = user_data[user_id]["profile"]
             user_context = f"Foydalanuvchi ma'lumotlari: Yosh: {user_info[0]}, Kasb: {user_info[1]}, Oylik daromad: {user_info[2]}, Qiziqishlar: {user_info[3]}, Biznes bor: {user_info[4]}"
-
+            
             if user_data[user_id]["credit_info"]:
                 credit_info = user_data[user_id]["credit_info"]
                 user_context += f", Kredit ma'lumotlari: Miqdor: {credit_info['amount']:,.0f} so'm, Foiz: {credit_info['interest_rate']}%, Muddati: {credit_info['term']} oy"
@@ -205,12 +191,12 @@ Quyidagi tamoyillarga amal qiling:
 
         # OpenAI API ga so'rov
         url = "https://api.openai.com/v1/chat/completions"
-
+        
         headers = {
             "Authorization": f"Bearer {OPENAI_API_KEY}",
             "Content-Type": "application/json"
         }
-
+        
         payload = {
             "model": "gpt-3.5-turbo",
             "messages": [
@@ -224,10 +210,10 @@ Quyidagi tamoyillarga amal qiling:
         # Sync request ni async ga o'girish
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
-            None,
+            None, 
             lambda: requests.post(url, json=payload, headers=headers, timeout=30)
         )
-
+        
         if response.status_code == 200:
             result = response.json()
             return result['choices'][0]['message']['content']
@@ -242,7 +228,7 @@ Quyidagi tamoyillarga amal qiling:
                    "• Kredit olishdan oldin bir nechta banklarni solishtiring\n" \
                    "• Depozit ochishda muddat va foiz stavkasiga e'tibor bering\n" \
                    "• O'z daromadingizga mos keladigan to'lov rejasini tanlang"
-
+                    
     except Exception as e:
         return f"🤖 **Moliyaviy Maslahat**\n\n" \
                "Hozircha AI xizmatida vaqtinchalik muammo. Iltimos, quyidagi bo'limlardan foydalaning:\n\n" \
@@ -250,7 +236,6 @@ Quyidagi tamoyillarga amal qiling:
                "🏦 **Depozit kalkulyatori** - Banklarni solishtiring\n" \
                "👤 **Profil** - Ma'lumotlaringizni yangilang\n\n" \
                "Yordam kerak bo'lsa, qayta urinib ko'ring."
-
 
 # Depozit hisoblash funksiyasi
 def calculate_deposit(amount, annual_rate, term_months, capitalization=True, tax_rate=12):
@@ -291,7 +276,6 @@ def calculate_deposit(amount, annual_rate, term_months, capitalization=True, tax
         print(f"Depozit hisobida xatolik: {e}")
         return None
 
-
 # Depozit natijasini chiroyli formatda
 def format_deposit_result(result, bank_name):
     if not result:
@@ -319,7 +303,6 @@ def format_deposit_result(result, bank_name):
 
     return message
 
-
 # Depozit maslahatlari
 def get_deposit_advice(result):
     advice = []
@@ -341,7 +324,6 @@ def get_deposit_advice(result):
 
     return " | ".join(advice)
 
-
 # Banklar solishtirish
 def compare_banks(amount, term_months):
     comparison = "🏦 **BANKLAR SOLISHTIRISHI**\n\n"
@@ -361,7 +343,6 @@ def compare_banks(amount, term_months):
                 )
 
     return comparison
-
 
 # Kredit grafigini hisoblash
 def calculate_credit_schedule(amount, interest_rate, term, start_date):
@@ -398,7 +379,6 @@ def calculate_credit_schedule(amount, interest_rate, term, start_date):
         print(f"Kredit grafigini hisoblashda xatolik: {e}")
         return None
 
-
 # Jadvalni matn shaklida yaratish
 def create_schedule_table(schedule):
     if not schedule:
@@ -420,13 +400,11 @@ def create_schedule_table(schedule):
     table += f"\n**Umumiy foizlar:** {total_interest:,.0f} so'm\n"
     table += f"**Umumiy to'lov:** {total_payments:,.0f} so'm\n"
     table += f"**Asosiy qarz:** {schedule[0]['remaining_balance'] + schedule[0]['total_payment'] - schedule[0]['interest']:,.0f} so'm"
-
+    
     if len(schedule) > 12:
         table += f"\n\nℹ️ Faqat birinchi 12 oy ko'rsatildi. Jami {len(schedule)} oy."
 
     return table
-
-
 
 @dp.message(Command("start"))
 async def start_handler(message: Message, state: FSMContext):
@@ -451,7 +429,6 @@ async def start_handler(message: Message, state: FSMContext):
     await message.answer("Yoshingizni kiriting:")
     await state.set_state(ProfileForm.age)
 
-
 @dp.callback_query(F.data == "check_sub")
 async def check_subscription_callback(call: CallbackQuery, state: FSMContext):
     subscribed = await check_subscription(call.from_user.id)
@@ -473,13 +450,11 @@ async def check_subscription_callback(call: CallbackQuery, state: FSMContext):
             await state.set_state(ProfileForm.age)
     await call.answer()
 
-
 @dp.message(ProfileForm.age)
 async def set_age(message: Message, state: FSMContext):
     subscribed = await check_subscription(message.from_user.id)
     if not subscribed:
-        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇",
-                             reply_markup=subscription_keyboard())
+        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇", reply_markup=subscription_keyboard())
         return
 
     user_id = str(message.from_user.id)
@@ -490,52 +465,44 @@ async def set_age(message: Message, state: FSMContext):
     await state.set_state(ProfileForm.job)
     await message.answer("Kasbingiz yoki o'qishingiz?")
 
-
 @dp.message(ProfileForm.job)
 async def set_job(message: Message, state: FSMContext):
     subscribed = await check_subscription(message.from_user.id)
     if not subscribed:
-        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇",
-                             reply_markup=subscription_keyboard())
+        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇", reply_markup=subscription_keyboard())
         return
 
     await state.update_data(job=message.text)
     await state.set_state(ProfileForm.income)
     await message.answer("Oylik daromadingiz qancha?")
 
-
 @dp.message(ProfileForm.income)
 async def set_income(message: Message, state: FSMContext):
     subscribed = await check_subscription(message.from_user.id)
     if not subscribed:
-        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇",
-                             reply_markup=subscription_keyboard())
+        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇", reply_markup=subscription_keyboard())
         return
 
     await state.update_data(income=message.text)
     await state.set_state(ProfileForm.interest)
     await message.answer("Qiziqishlaringiz?")
 
-
 @dp.message(ProfileForm.interest)
 async def set_interest(message: Message, state: FSMContext):
     subscribed = await check_subscription(message.from_user.id)
     if not subscribed:
-        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇",
-                             reply_markup=subscription_keyboard())
+        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇", reply_markup=subscription_keyboard())
         return
 
     await state.update_data(interest=message.text)
     await state.set_state(ProfileForm.business)
     await message.answer("Hozir biznesingiz bormi? (ha/yo'q)")
 
-
 @dp.message(ProfileForm.business)
 async def finish_profile(message: Message, state: FSMContext):
     subscribed = await check_subscription(message.from_user.id)
     if not subscribed:
-        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇",
-                             reply_markup=subscription_keyboard())
+        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇", reply_markup=subscription_keyboard())
         return
 
     user_id = str(message.from_user.id)
@@ -568,21 +535,18 @@ async def finish_profile(message: Message, state: FSMContext):
     await message.answer("Quyidagi menyudan birini tanlang:", reply_markup=main_menu())
     await state.clear()
 
-
 # Kredit ma'lumotlarini olish
 @dp.callback_query(F.data == "credit_graph")
 async def start_credit_form(call: CallbackQuery, state: FSMContext):
     subscribed = await check_subscription(call.from_user.id)
     if not subscribed:
         await call.answer("🚫 Iltimos, avval kanallarga obuna bo'ling.", show_alert=True)
-        await call.message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇",
-                                  reply_markup=subscription_keyboard())
+        await call.message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇", reply_markup=subscription_keyboard())
         return
 
     await call.message.answer("Kredit miqdorini kiriting (so'mda):")
     await state.set_state(CreditForm.amount)
     await call.answer()
-
 
 @dp.message(CreditForm.amount)
 async def set_credit_amount(message: Message, state: FSMContext):
@@ -594,7 +558,6 @@ async def set_credit_amount(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("Iltimos, raqam kiriting. Masalan: 10000000")
 
-
 @dp.message(CreditForm.interest_rate)
 async def set_interest_rate(message: Message, state: FSMContext):
     try:
@@ -604,7 +567,6 @@ async def set_interest_rate(message: Message, state: FSMContext):
         await message.answer("Kredit muddatini kiriting (oylarda):")
     except ValueError:
         await message.answer("Iltimos, foiz stavkasini to'g'ri kiriting. Masalan: 18.5")
-
 
 @dp.message(CreditForm.term)
 async def set_credit_term(message: Message, state: FSMContext):
@@ -618,7 +580,6 @@ async def set_credit_term(message: Message, state: FSMContext):
         await message.answer("Kredit olingan sanani kiriting (kun.oy.yil formatida, masalan: 01.10.2024):")
     except ValueError:
         await message.answer("Iltimos, butun son kiriting. Masalan: 12")
-
 
 @dp.message(CreditForm.start_date)
 async def finish_credit_form(message: Message, state: FSMContext):
@@ -654,11 +615,7 @@ async def finish_credit_form(message: Message, state: FSMContext):
             else:
                 await message.answer(f"```\n{table}\n```", parse_mode="Markdown")
 
-            await message.answer("🖼️ Rasm tayyorlanmoqda...")
-
-
-            await message.answer("✅ Kredit grafigi saqlandi! Quyidagi menyudan boshqa amalni tanlang:",
-                                 reply_markup=main_menu())
+            await message.answer("✅ Kredit grafigi saqlandi! Quyidagi menyudan boshqa amalni tanlang:", reply_markup=main_menu())
         else:
             await message.answer("❌ Xatolik: Kredit grafigini hisoblab bo'lmadi. Ma'lumotlarni tekshiring.")
 
@@ -668,7 +625,6 @@ async def finish_credit_form(message: Message, state: FSMContext):
         await message.answer(f"❌ Xatolik yuz berdi: {str(e)}")
 
     await state.clear()
-
 
 # Depozit kalkulyatorini boshlash
 @dp.callback_query(F.data == "deposit_calc")
@@ -687,7 +643,6 @@ async def start_deposit_calc(call: CallbackQuery, state: FSMContext):
     )
     await state.set_state(DepositForm.amount)
     await call.answer()
-
 
 # Depozit summasini qabul qilish
 @dp.message(DepositForm.amount)
@@ -710,7 +665,6 @@ async def set_deposit_amount(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("❌ Iltimos, raqam kiriting. Masalan: 1000000")
 
-
 # Depozit muddatini qabul qilish
 @dp.message(DepositForm.term)
 async def set_deposit_term(message: Message, state: FSMContext):
@@ -730,7 +684,6 @@ async def set_deposit_term(message: Message, state: FSMContext):
         await message.answer(f"{comparison}\nQuyidagi banklardan birini tanlang:", reply_markup=banks_keyboard())
     except ValueError:
         await message.answer("❌ Iltimos, butun son kiriting. Masalan: 12")
-
 
 # Bank tanlash
 @dp.callback_query(F.data.startswith("bank_"))
@@ -754,7 +707,6 @@ async def select_bank(call: CallbackQuery, state: FSMContext):
             reply_markup=capitalization_keyboard()
         )
     await call.answer()
-
 
 # Kapitalizatsiya tanlash
 @dp.callback_query(F.data.startswith("cap_"))
@@ -781,8 +733,7 @@ async def select_capitalization(call: CallbackQuery, state: FSMContext):
             "🔄 Boshqa banklarni solishtirishni xohlaysizmi?",
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [InlineKeyboardButton(text="🔄 Banklarni solishtirish",
-                                          callback_data=f"compare_{data['amount']}_{data['term']}")],
+                    [InlineKeyboardButton(text="🔄 Banklarni solishtirish", callback_data=f"compare_{data['amount']}_{data['term']}")],
                     [InlineKeyboardButton(text="📊 Boshqa hisob", callback_data="deposit_calc")],
                     [InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="main_menu")],
                 ]
@@ -792,7 +743,6 @@ async def select_capitalization(call: CallbackQuery, state: FSMContext):
         await call.message.edit_text("❌ Hisoblab bo'lmadi. Qayta urinib ko'ring.")
 
     await call.answer()
-
 
 # Banklarni solishtirish
 @dp.callback_query(F.data.startswith("compare_"))
@@ -819,14 +769,12 @@ async def compare_banks_callback(call: CallbackQuery):
 
     await call.answer()
 
-
 # Asosiy menyuga qaytish
 @dp.callback_query(F.data == "main_menu")
 async def back_to_main(call: CallbackQuery, state: FSMContext):
     await state.clear()
     await call.message.edit_text("🏠 Bosh menyu:", reply_markup=main_menu())
     await call.answer()
-
 
 @dp.callback_query()
 async def callbacks(call: CallbackQuery, state: FSMContext):
@@ -836,8 +784,7 @@ async def callbacks(call: CallbackQuery, state: FSMContext):
     subscribed = await check_subscription(call.from_user.id)
     if not subscribed:
         await call.answer("🚫 Iltimos, avval kanallarga obuna bo'ling.", show_alert=True)
-        await call.message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇",
-                                  reply_markup=subscription_keyboard())
+        await call.message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇", reply_markup=subscription_keyboard())
         return
 
     if data == "ai_consultation":
@@ -878,15 +825,13 @@ async def callbacks(call: CallbackQuery, state: FSMContext):
         await start_credit_form(call, state)
         return
 
-
 @dp.message()
 async def main_handler(message: Message, state: FSMContext):
     user_id = str(message.from_user.id)
 
     subscribed = await check_subscription(message.from_user.id)
     if not subscribed:
-        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇",
-                             reply_markup=subscription_keyboard())
+        await message.answer("Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling 👇", reply_markup=subscription_keyboard())
         return
 
     if user_id not in user_data:
@@ -897,14 +842,11 @@ async def main_handler(message: Message, state: FSMContext):
     result = await ask_openai(user_id, message.text)
     await message.answer(result)
 
-
 async def main():
     load_user_data()
     print("🤖 Bot ishga tushdi...")
     print(f"👥 Yuklangan userlar soni: {len(user_data)}")
     await dp.start_polling(bot)
 
-
 if __name__ == "__main__":
     asyncio.run(main())
-
