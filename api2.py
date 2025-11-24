@@ -30,8 +30,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Tokenlarni tekshirish
 if not API_TOKEN:
     raise ValueError("API_TOKEN .env faylda topilmadi!")
-if not OPENAI_API_KEY:
-    print("⚠️ OPENAI_API_KEY topilmadi! AI funksiyasi ishlamaydi.")
 
 # JSON fayl nomi
 USER_DATA_FILE = "user_data.json"
@@ -154,12 +152,19 @@ def capitalization_keyboard():
         ]
     )
 
-# OpenAI bilan ishlash funksiyasi
+# OpenAI bilan ishlash funksiyasi (requests orqali)
 async def ask_openai(user_id: str, user_question: str) -> str:
     try:
         if not OPENAI_API_KEY:
-            return "❌ AI xizmati hozircha mavjud emas. Iltimos, keyinroq urinib ko'ring."
-        
+            return "🤖 **Moliyaviy Maslahat**\n\n" \
+                   "Hozircha AI xizmati mavjud emas. Quyidagi maslahatlarimiz bilan tanishing:\n\n" \
+                   "💡 **Umumiy moliyaviy maslahatlar:**\n" \
+                   "• Har oy daromadingizning kamida 20% ni tejashing\n" \
+                   "• Favqulodda vaziyatlar uchun 3-6 oylik daromad miqdorida jamg'arma yarating\n" \
+                   "• Kredit olishdan oldin bir nechta banklarni solishtiring\n" \
+                   "• Depozit ochishda foiz stavkasi va muddatiga e'tibor bering\n\n" \
+                   "📊 Kredit yoki depozit hisoblarimizdan foydalanishingiz mumkin!"
+
         # User ma'lumotlarini olish
         user_context = ""
         if user_id in user_data:
@@ -174,15 +179,16 @@ async def ask_openai(user_id: str, user_question: str) -> str:
 
         # To'liq prompt tayyorlash
         system_prompt = """Siz professional moliyaviy maslahatchi AI siz. 
-        Foydalanuvchilarga O'zbekiston bozoriga mos moliyaviy maslahatlar bering.
-        Quyidagi tamoyillarga amal qiling:
-        - Aniq va amaliy maslahatlar bering
-        - Moliyaviy jihatdan xavfsiz tavsiyalar
-        - O'zbekiston iqtisodiy sharoitlariga moslashtirilgan
-        - Batafsil va tushunarli javob
-        - Maxfiylikni saqlang
-        - Bank xizmatlari, kreditlar, depozitlar bo'yicha maslahat
-        - Soddalashtirilgan tilda gapiring"""
+Foydalanuvchilarga O'zbekiston bozoriga mos moliyaviy maslahatlar bering.
+Quyidagi tamoyillarga amal qiling:
+- Aniq va amaliy maslahatlar bering
+- Moliyaviy jihatdan xavfsiz tavsiyalar
+- O'zbekiston iqtisodiy sharoitlariga moslashtirilgan
+- Batafsil va tushunarli javob
+- Maxfiylikni saqlang
+- Bank xizmatlari, kreditlar, depozitlar bo'yicha maslahat
+- Soddalashtirilgan tilda gapiring
+- Javobni markdown formatida emas, oddiy matnda bering"""
 
         full_prompt = f"{user_context}\n\nFoydalanuvchi savoli: {user_question}"
 
@@ -204,17 +210,35 @@ async def ask_openai(user_id: str, user_question: str) -> str:
             "max_tokens": 1000
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers=headers) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return result['choices'][0]['message']['content']
-                else:
-                    error_text = await response.text()
-                    return f"❌ AI xizmatida vaqtinchalik xatolik. Iltimos, keyinroq urinib ko'ring. Xatolik kodi: {response.status}"
+        # Sync request ni async ga o'girish
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None, 
+            lambda: requests.post(url, json=payload, headers=headers, timeout=30)
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        else:
+            return "🤖 **Moliyaviy Maslahat**\n\n" \
+                   "Hozircha AI xizmatida vaqtinchalik muammo. Quyidagi maslahatlarimiz bilan tanishing:\n\n" \
+                   "💼 **Moliyaviy reja yaratish:**\n" \
+                   "• Maqsadlaringizni aniq belgilang\n" \
+                   "• Byudjet tuzing va uni kuzatib boring\n" \
+                   "• Tejamkor bo'lish odatini shakllantiring\n\n" \
+                   "🏦 **Bank xizmatlari:**\n" \
+                   "• Kredit olishdan oldin bir nechta banklarni solishtiring\n" \
+                   "• Depozit ochishda muddat va foiz stavkasiga e'tibor bering\n" \
+                   "• O'z daromadingizga mos keladigan to'lov rejasini tanlang"
                     
     except Exception as e:
-        return f"❌ Xatolik yuz berdi: {str(e)}. Iltimos, keyinroq urinib ko'ring."
+        return f"🤖 **Moliyaviy Maslahat**\n\n" \
+               "Hozircha AI xizmatida vaqtinchalik muammo. Iltimos, quyidagi bo'limlardan foydalaning:\n\n" \
+               "📊 **Kredit grafigi** - To'lov jadvalingizni ko'ring\n" \
+               "🏦 **Depozit kalkulyatori** - Banklarni solishtiring\n" \
+               "👤 **Profil** - Ma'lumotlaringizni yangilang\n\n" \
+               "Yordam kerak bo'lsa, qayta urinib ko'ring."
 
 # Depozit hisoblash funksiyasi
 def calculate_deposit(amount, annual_rate, term_months, capitalization=True, tax_rate=12):
@@ -399,6 +423,7 @@ def create_credit_schedule_image(schedule, credit_info):
         draw = ImageDraw.Draw(img)
 
         try:
+            # Fontlarni yuklash
             title_font = ImageFont.truetype("arial.ttf", 20)
             header_font = ImageFont.truetype("arial.ttf", 14)
             text_font = ImageFont.truetype("arial.ttf", 10)
