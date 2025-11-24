@@ -14,7 +14,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
-import aiohttp
 import requests
 
 # .env faylini yuklash
@@ -208,11 +207,7 @@ Quyidagi tamoyillarga amal qiling:
         }
 
         # Sync request ni async ga o'girish
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None, 
-            lambda: requests.post(url, json=payload, headers=headers, timeout=30)
-        )
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
         
         if response.status_code == 200:
             result = response.json()
