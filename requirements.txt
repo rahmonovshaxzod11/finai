@@ -1,0 +1,4 @@
+aiogram~=3.4.1
+gigachat~=0.1.43
+openai~=2.8.1
+python-dotenv~=1.2.1
