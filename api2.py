@@ -28,7 +28,6 @@ API_TOKEN = os.getenv("API_TOKEN")
 GIGA_TOKEN = os.getenv("GIGA_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-
 # Tokenlarni tekshirish
 if not API_TOKEN:
     raise ValueError("API_TOKEN .env faylda topilmadi!")
@@ -105,6 +104,15 @@ def save_user_data():
         print(f"Faylga yozishda xatolik: {e}")
 
 
+# Profil to'liqligini tekshirish
+def is_profile_complete(user_id: str) -> bool:
+    if user_id not in user_data:
+        return False
+    
+    profile = user_data[user_id].get("profile", [])
+    # Profil 5 ta maydondan iborat va ularning barchasi to'ldirilgan bo'lishi kerak
+    return len(profile) == 5 and all(profile)
+
 
 # OpenAI API bilan ishlash (requests orqali)
 async def ask_openai(user_id: str, user_question: str) -> str:
@@ -154,7 +162,7 @@ async def ask_openai(user_id: str, user_question: str) -> str:
             "max_tokens": 1000
         }
 
-        # Sync so‘rovni async qilish
+        # Sync so'rovni async qilish
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
@@ -423,13 +431,15 @@ async def start_handler(message: Message, state: FSMContext):
         )
         return
 
-    if user_id in user_data:
+    # Agar profil to'liq bo'lsa, menyuni ko'rsat
+    if is_profile_complete(user_id):
         await message.answer(
             "Assalomu alaykum xush kelibsiz! 😊 Bank xizmatlari bo'limiga xush kelibsiz! Nimadan boshlaymiz?",
             reply_markup=main_menu()
         )
         return
 
+    # Aks holda profil to'ldirishni boshlash
     await message.answer("🎉 Obuna tasdiqlandi! Profilingizni to'ldirishni boshlaymiz.")
     await message.answer("Yoshingizni kiriting:")
     await state.set_state(ProfileForm.age)
@@ -447,7 +457,7 @@ async def check_subscription_callback(call: CallbackQuery, state: FSMContext):
         )
     else:
         user_id = str(call.from_user.id)
-        if user_id in user_data:
+        if is_profile_complete(user_id):
             await call.message.edit_text("🎉 Obuna tasdiqlandi! Quyidagi menyudan birini tanlang:")
             await call.message.answer("Menyu:", reply_markup=main_menu())
         else:
@@ -845,7 +855,7 @@ async def callbacks(call: CallbackQuery, state: FSMContext):
         return
 
     if data == "show_profile":
-        if user_id in user_data and user_data[user_id]["profile"]:
+        if is_profile_complete(user_id):
             user_info = user_data[user_id]["profile"]
             msg = (
                 f"📋 Profil ma'lumotlari:\n\n"
@@ -857,7 +867,7 @@ async def callbacks(call: CallbackQuery, state: FSMContext):
             )
             await call.message.answer(msg)
 
-            if user_data[user_id]["credit_info"]:
+            if user_data[user_id].get("credit_info"):
                 credit_info = user_data[user_id]["credit_info"]
                 credit_msg = (
                     f"\n📊 **Kredit ma'lumotlari:**\n"
@@ -890,17 +900,14 @@ async def main_handler(message: Message, state: FSMContext):
         )
         return
 
-    if user_id not in user_data:
-        await message.answer("Iltimos, avval profilingizni to'ldiring. /start buyrug'ini bosing.")
+    # Profil to'liqligini tekshirish
+    if not is_profile_complete(user_id):
+        await message.answer("❌ Iltimos, avval profilingizni to'ldiring. /start buyrug'ini bosing.")
         return
 
     await message.answer("⏳ Moliyachi AI javob tayyorlayapti...")
-
-    # AIga savolni yuborish
     result = await ask_openai(user_id, message.text)
-
     await message.answer(result)
-
 
 
 async def main():
