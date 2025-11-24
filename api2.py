@@ -895,8 +895,12 @@ async def main_handler(message: Message, state: FSMContext):
         return
 
     await message.answer("⏳ Moliyachi AI javob tayyorlayapti...")
-    result = await ask_gigachat(user_id, message.text)
+
+    # AIga savolni yuborish
+    result = await ask_openai(user_id, message.text)
+
     await message.answer(result)
+
 
 
 async def main():
